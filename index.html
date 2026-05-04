@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Prince Office Mobile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root { --primary: #00d2ff; --success: #4ade80; --danger: #ff4d4d; --card-bg: #1e293b; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { background: #0f172a; color: white; font-family: sans-serif; margin: 0; padding: 10px; padding-bottom: 80px; }
+        
+        /* واجهة الموبايل */
+        .card { background: var(--card-bg); padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.1); }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: none; background: #0f172a; color: white; font-size: 16px; }
+        
+        .btn-main { background: var(--primary); color: #0f172a; padding: 15px; width: 100%; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
+        
+        .stats-scroll { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 10px; }
+        .stat-box { min-width: 120px; background: var(--card-bg); padding: 10px; border-radius: 12px; text-align: center; border-bottom: 3px solid var(--primary); }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { text-align: right; font-size: 12px; color: var(--primary); padding: 10px; }
+        td { padding: 12px 10px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        
+        .paid-tag { font-size: 10px; color: var(--success); display: block; }
+        .action-btns { display: flex; gap: 5px; }
+        .btn-sm { padding: 8px; border-radius: 8px; border: none; font-size: 12px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h3 id="officeTitle" style="text-align: center; color: var(--primary); margin-bottom: 15px;">مكتب الأمير</h3>
+    
+    <div class="stats-scroll">
+        <div class="stat-box"><small>الإجمالي</small><div id="totalSum">0</div></div>
+        <div class="stat-box"><small>المسدد</small><div id="paidSum" style="color:var(--success)">0</div></div>
+        <div class="stat-box"><small>المتبقي</small><div id="debtSum" style="color:var(--danger)">0</div></div>
+    </div>
+
+    <div class="card">
+        <input type="text" id="s_name" placeholder="اسم المشترك الجديد">
+        <select id="s_type">
+            <option value="NB1">NB1 - 25,000</option>
+            <option value="NBMAX">NBMAX - 35,000</option>
+            <option value="NB2">NB2 - 45,000</option>
+            <option value="NB3">NB3 - 65,000</option>
+        </select>
+        <input type="date" id="s_start">
+        <button class="btn-main" onclick="addNew()">إضافة مشترك جديد</button>
+    </div>
+
+    <div class="card" style="padding: 0;">
+        <table>
+            <thead><tr><th>المشترك</th><th>الحالة</th><th>إجراء</th></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        // سأقوم هنا بوضع نفس المنطق البرمجي السابق مع تعديل الحفظ
+        let subscribers = JSON.parse(localStorage.getItem('ameer_isp_app')) || [];
+        const prices = { "NB1": 25000, "NBMAX": 35000, "NB2": 45000, "NB3": 65000 };
+
+        function addNew() {
+            const name = document.getElementById('s_name').value;
+            const type = document.getElementById('s_type').value;
+            const start = document.getElementById('s_start').value;
+            if(!name || !start) return alert("امسح الحقول الفارغة");
+            
+            const end = new Date(start); end.setDate(end.getDate() + 30);
+            subscribers.push({
+                name, type, price: prices[type], start, end: end.toISOString().split('T')[0],
+                isPaid: false, paidAt: null
+            });
+            save();
+        }
+
+        function pay(i) {
+            const now = new Date();
+            subscribers[i].isPaid = true;
+            subscribers[i].paidAt = now.toLocaleDateString('ar-IQ');
+            save();
+        }
+
+        function save() {
+            localStorage.setItem('ameer_isp_app', JSON.stringify(subscribers));
+            render();
+        }
+
+        function render() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            subscribers.forEach((s, i) => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b>${s.name}</b><br><small>${s.type} - ${s.end}</small></td>
+                        <td>${s.isPaid ? '<span class="paid-tag">تم الدفع<br>'+s.paidAt+'</span>' : '<b style="color:red">مطلوب</b>'}</td>
+                        <td class="action-btns">
+                            ${!s.isPaid ? `<button class="btn-sm" style="background:var(--success)" onclick="pay(${i})">✔</button>` : ''}
+                            <button class="btn-sm" style="background:var(--danger)" onclick="subscribers.splice(${i},1);save()">×</button>
+                        </td>
+                    </tr>`;
+            });
+            updateStats();
+        }
+
+        function updateStats() {
+            const total = subscribers.reduce((a,b) => a + b.price, 0);
+            const paid = subscribers.filter(s => s.isPaid).reduce((a,b) => a + b.price, 0);
+            document.getElementById('totalSum').innerText = total.toLocaleString();
+            document.getElementById('paidSum').innerText = paid.toLocaleString();
+            document.getElementById('debtSum').innerText = (total - paid).toLocaleString();
+        }
+        render();
+    </script>
+</body>
+</html>
+
